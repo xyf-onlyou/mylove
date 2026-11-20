@@ -1,7 +1,7 @@
 {
-  "name": "Chat",
-  "short_name": "Chat",
-  "start_url": "./",
+  "name": "字卡 · UI原型",
+  "short_name": "字卡",
+  "start_url": "/mylove/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
@@ -9,6 +9,11 @@
     {
       "src": "mmexport1795168362268.png",
       "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "mmexport1795168362268.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
   ]
