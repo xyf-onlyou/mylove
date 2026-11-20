@@ -1,9 +1,9 @@
-const CACHE_NAME = 'mylove-pwa-v1';
+const CACHE_NAME = 'love-pwa-v1';
 const FILES = [
-  '/mylove/',
-  '/mylove/index.html',
-  '/mylove/manifest.json',
-  '/mylove/mmexport1795168362268.png'
+  './',
+  './index.html',
+  './manifest.json',
+  './mmexport1795168362268.png'
 ];
 
 self.addEventListener('install', e => {
