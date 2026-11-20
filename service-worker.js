@@ -1,19 +1,18 @@
-const CACHE_NAME = 'chat-pwa-v1';
-const urlsToCache = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon.png'
+const CACHE_NAME = 'mylove-pwa-v1';
+const FILES = [
+  '/mylove/',
+  '/mylove/index.html',
+  '/mylove/manifest.json',
+  '/mylove/mmexport1795168362268.png'
 ];
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)));
+  self.skipWaiting();
 });
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => response || fetch(event.request))
-  );
+self.addEventListener('activate', e => {
+  e.waitUntil(self.clients.claim());
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
