@@ -5917,5 +5917,23 @@ button{-webkit-focus-ring-color:transparent}
   });
 })();
 </script>
+<button id="installBtn" style="display:none;padding:10px 16px;font-size:16px;border-radius:99px;border:none;background:#111;color:#fff;">安装love</button>
+<script>
+let installEvent = null;
+const btn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvent = e;
+  btn.style.display = 'block';
+});
+
+btn.addEventListener('click', async () => {
+  if (!installEvent) return;
+  const res = await installEvent.prompt();
+  installEvent = null;
+  btn.style.display = 'none';
+});
+</script>
 </body>
 </html>
