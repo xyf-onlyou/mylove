@@ -274,10 +274,13 @@ input,textarea{font-family:inherit}
 /* 表情 / 加号面板 */
 .panel{
   position:absolute;left:14px;right:14px;bottom:86px;z-index:4;
-  background:var(--glass);border:1px solid var(--glass-b);border-radius:26px;padding:14px;backdrop-filter:blur(24px) saturate(1.7);-webkit-backdrop-filter:blur(24px) saturate(1.7);
+  background:var(--glass);border:1px solid var(--glass-b);border-radius:26px;padding:14px;
+  backdrop-filter:blur(24px) saturate(1.7);-webkit-backdrop-filter:blur(24px) saturate(1.7);
   opacity:0;transform:translateY(10px) scale(.98);pointer-events:none;
   transition:opacity .3s var(--ease),transform .34s var(--ease);
+  max-height:56vh;overflow-y:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
 }
+.panel::-webkit-scrollbar{display:none}
 .panel.on{opacity:1;transform:none;pointer-events:auto}
 .emoji-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
 .emoji-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
@@ -3115,13 +3118,41 @@ button{-webkit-focus-ring-color:transparent}
 
   $('#docNew').onclick = function(){ openDocEditor(null); };
 
-  /* 读取本地文件为 dataURL */
+  /* 读取本地文件为 dataURL；图片自动压缩到 640px，避免撑爆 localStorage（约 5MB） */
   function readFileAsURL(file){
     return new Promise((res, rej)=>{
-      const r = new FileReader();
-      r.onload = ()=> res(String(r.result));
-      r.onerror = rej;
-      r.readAsDataURL(file);
+      const type = (file && file.type) || '';
+      if(type.indexOf('image/') === 0 && type.indexOf('svg') < 0 && type.indexOf('gif') < 0){
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = function(){
+          URL.revokeObjectURL(url);
+          let w = img.naturalWidth || 1, h = img.naturalHeight || 1;
+          const maxDim = 640;
+          const scale = Math.min(1, maxDim / Math.max(w, h));
+          w = Math.max(1, Math.round(w * scale));
+          h = Math.max(1, Math.round(h * scale));
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img, 0, 0, w, h);
+          const isPNG = type.indexOf('png') >= 0;
+          let out = null;
+          if(isPNG){
+            try{ out = cv.toDataURL('image/webp', 0.85); }catch(e){}
+            if(!out || out.indexOf('data:image/webp') !== 0) out = cv.toDataURL('image/png');
+          } else {
+            out = cv.toDataURL('image/jpeg', 0.82);
+          }
+          res(out);
+        };
+        img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error('图片读取失败')); };
+        img.src = url;
+      } else {
+        const r = new FileReader();
+        r.onload = ()=> res(String(r.result));
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      }
     });
   }
   function readFileAsText(file){
