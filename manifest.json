@@ -1,7 +1,8 @@
 {
-  "name": "字卡 · UI原型",
-  "short_name": "字卡",
-  "start_url": "/mylove/",
+  "name": "love",
+  "short_name": "love",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
