@@ -4,14 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>love</title>
-<link rel="manifest" href="./manifest.json">
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js');
-  });
-}
-</script>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111111">
+<link rel="icon" type="image/png" href="mmexport1795168362268.png">
+<link rel="apple-touch-icon" href="mmexport1795168362268.png">
 <style>
 /* ============ 设计变量 ============ */
 :root{
@@ -1742,11 +1738,64 @@ button{-webkit-focus-ring-color:transparent}
   const pad2d = n => String(n).padStart(2,'0');
   const pad2 = pad2d;
   let quotaWarned = false;
+  /* ===== 大容量存储兜底（IndexedDB）：localStorage 只有约 5MB ===== */
+  let idbDb = null, idbTimer = null;
+  function idbSave(){
+    try{
+      if(!window.indexedDB) return;
+      if(idbDb){
+        const tx = idbDb.transaction('kv','readwrite');
+        tx.objectStore('kv').put(JSON.stringify(S), 'S');
+        return;
+      }
+      const req = indexedDB.open('zikao-app', 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore('kv'); };
+      req.onsuccess = function(){
+        idbDb = req.result;
+        const tx = idbDb.transaction('kv','readwrite');
+        tx.objectStore('kv').put(JSON.stringify(S), 'S');
+      };
+    }catch(_){}
+  }
+  function idbLoad(){
+    try{
+      if(!window.indexedDB) return;
+      const req = indexedDB.open('zikao-app', 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore('kv'); };
+      req.onsuccess = function(){
+        idbDb = req.result;
+        const rq = idbDb.transaction('kv','readonly').objectStore('kv').get('S');
+        rq.onsuccess = function(){
+          if(!rq.result) return;
+          try{
+            const data = JSON.parse(rq.result);
+            if(data && Array.isArray(data.chats) && (data._v||0) > (S._v||0)){
+              S = data;
+              S.covers = S.covers || {moment:''};
+              S.stickers = Object.assign({mine:[], roles:[]}, S.stickers || {});
+              S.letters = S.letters || [];
+              S.moments = S.moments || [];
+              S.tracks = S.tracks || [];
+              S.docs = S.docs || [];
+              S.cardDecks = S.cardDecks || {tarot:{}, lenor:{}};
+              if(!S.cardDecks.tarot) S.cardDecks.tarot = {};
+              if(!S.cardDecks.lenor) S.cardDecks.lenor = {};
+              (S.chats||[]).forEach(function(c){ c.settings = mergeRole(c.settings); c.msgs = c.msgs||[]; c.unread = c.unread||0; if(c.type==='role') c.memories = c.memories||[]; });
+              renderChats(); renderGroups(); renderCards(); renderMe(); renderLetters(); renderMoments(); renderMusic(); renderUnread();
+            }
+          }catch(_){}
+        };
+      };
+    }catch(_){}
+  }
   const save = ()=>{
+    S._v = (S._v || 0) + 1;
     try{ localStorage.setItem(KEY, JSON.stringify(S)); }
     catch(e){
-      if(!quotaWarned){ quotaWarned = true; setTimeout(()=>{ try{ toast('本地空间不足，大文件本次有效但刷新后可能丢失'); }catch(_){} }, 50); }
+      if(!quotaWarned){ quotaWarned = true; setTimeout(()=>{ try{ toast('本地空间不足，已自动切换大容量存储'); }catch(_){} }, 50); }
     }
+    clearTimeout(idbTimer);
+    idbTimer = setTimeout(idbSave, 200);
   };
 
   /* ---------- 主题 ---------- */
@@ -2022,8 +2071,11 @@ button{-webkit-focus-ring-color:transparent}
       return '<div class="bubble media-bubble" style="padding:5px;background:var(--surface)"><video src="'+m.src+'" controls playsinline style="display:block;width:190px;max-width:100%;height:auto;object-fit:contain;border-radius:15px"></video></div>';
     }
     if(m.t === 'voice'){
-      const durTxt = m.dur ? '<div style="font-size:10px;color:var(--ink-3);margin-top:5px">语音 · '+m.dur+' 秒</div>' : '';
-      return '<div class="bubble media-bubble" style="padding:8px 10px;background:var(--surface)"><audio controls src="'+m.src+'" style="display:block;width:200px;max-width:100%;height:40px"></audio>'+durTxt+'</div>';
+      const durTxt = m.dur ? (m.dur + '″') : '';
+      return '<div class="bubble media-bubble voice-bubble" data-voice="'+esc(m.src)+'" style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--surface);cursor:pointer">'+
+        '<svg class="ic" style="width:18px;height:18px;flex:0 0 auto"><use href="#i-play"/></svg>'+
+        '<span style="font-size:13px;line-height:1;font-variant-numeric:tabular-nums">'+durTxt+'</span>'+
+      '</div>';
     }
     return '<div class="bubble">'+esc(m.text)+'</div>';
   }
@@ -2113,6 +2165,7 @@ button{-webkit-focus-ring-color:transparent}
     }).join('');
     bindListenInviteActions(box);
     if(scrollBottom!==false) box.scrollTop = box.scrollHeight;
+    if(rt[c.id] && rt[c.id].pending) showTyping(c.id);
   }
   function appendMsg(m){
     const box = $('#msgScroll');
@@ -2184,7 +2237,7 @@ button{-webkit-focus-ring-color:transparent}
     if(Math.random()*100 >= prob) return;
     const pool = userStickerPool();
     if(!pool.length) return;
-    const chosen = pick(pool);const delay = 1500 + Math.random()*6500; // 角色拥有 8 秒时间做选择
+    const chosen = pick(pool);const delay = 8000; // 角色拥有 8 秒时间做选择
     setTimeout(function(){
       if(!S.chats.some(x => x.id === c.id)) return;
       const m = (c.msgs||[]).find(x => x.id === msg.id);
@@ -5945,6 +5998,19 @@ button{-webkit-focus-ring-color:transparent}
   /* 点击面板外部关闭 */document.addEventListener('click', function(e){
     if(e.target.closest('.panel') || e.target.closest('#emojiBtn') || e.target.closest('#plusBtn')) return;
     closePanels();
+  });
+  idbLoad();
+  let voicePlayer = null;
+  function playVoice(src){
+    if(!src){ toast('语音数据缺失'); return; }
+    if(voicePlayer){ try{ voicePlayer.pause(); }catch(e){} voicePlayer = null; }
+    voicePlayer = new Audio(src);
+    voicePlayer.onended = function(){ voicePlayer = null; };
+    voicePlayer.play().catch(function(){ toast('语音播放失败'); });
+  }
+  $('#msgScroll').addEventListener('click', function(e){
+    const vb = e.target.closest('[data-voice]');
+    if(vb){ e.stopPropagation(); playVoice(vb.dataset.voice); }
   });
 })();
 </script>
